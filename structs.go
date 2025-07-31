@@ -54,6 +54,12 @@ type TextBlock struct {
 	Text string `json:"text"`
 }
 
+// ThinkingBlock represents a thinking content block
+type ThinkingBlock struct {
+	Type    string `json:"type"`
+	Content string `json:"content"`
+}
+
 // ToolUseBlock represents a tool use request
 type ToolUseBlock struct {
 	Type  string    `json:"type"`
@@ -119,10 +125,49 @@ type LSInput struct {
 	Path string `json:"path"`
 }
 
+// WebFetchInput represents input for WebFetch tool
+type WebFetchInput struct {
+	URL    string `json:"url"`
+	Prompt string `json:"prompt"`
+}
+
+// WebSearchInput represents input for WebSearch tool
+type WebSearchInput struct {
+	Query           string   `json:"query"`
+	AllowedDomains  []string `json:"allowed_domains,omitempty"`
+	BlockedDomains  []string `json:"blocked_domains,omitempty"`
+}
+
+// TaskInput represents input for Task tool
+type TaskInput struct {
+	Description   string `json:"description"`
+	Prompt        string `json:"prompt"`
+	SubagentType  string `json:"subagent_type"`
+}
+
+// WriteInput represents input for Write tool
+type WriteInput struct {
+	FilePath string `json:"file_path"`
+	Content  string `json:"content"`
+}
+
+// MultiEditInput represents input for MultiEdit tool
+type MultiEditInput struct {
+	FilePath string      `json:"file_path"`
+	Edits    []EditItem  `json:"edits"`
+}
+
+// EditItem represents a single edit operation in MultiEdit
+type EditItem struct {
+	OldString  string `json:"old_string"`
+	NewString  string `json:"new_string"`
+	ReplaceAll *bool  `json:"replace_all,omitempty"`
+}
+
 // ToolResultBlock represents a tool execution result
 type ToolResultBlock struct {
-	Type       string  `json:"type"`
-	ToolUseId  string  `json:"tool_use_id"`
-	Content    string  `json:"content"`
-	IsError    *bool   `json:"is_error,omitempty"`
+	Type       string      `json:"type"`
+	ToolUseId  string      `json:"tool_use_id"`
+	Content    interface{} `json:"content"` // Can be string or array
+	IsError    *bool       `json:"is_error,omitempty"`
 }

@@ -179,6 +179,92 @@ templ Layout(title string) {
                 transform: translateY(0);
                 background: #4338ca;
             }
+            
+            /* Markdown Content Styles */
+            .markdown-content h1, .markdown-content h2, .markdown-content h3, 
+            .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+                margin-top: 1.5em;
+                margin-bottom: 0.5em;
+                color: #1e40af;
+            }
+            .markdown-content h1 { font-size: 1.5em; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.3em; }
+            .markdown-content h2 { font-size: 1.3em; border-bottom: 1px solid #f3f4f6; padding-bottom: 0.2em; }
+            .markdown-content h3 { font-size: 1.1em; }
+            
+            .markdown-content p { margin: 0.8em 0; line-height: 1.6; }
+            .markdown-content ul, .markdown-content ol { margin: 0.8em 0; padding-left: 1.5em; }
+            .markdown-content li { margin: 0.3em 0; }
+            
+            .markdown-content blockquote {
+                margin: 1em 0;
+                padding: 0.5em 1em;
+                border-left: 4px solid #3b82f6;
+                background: #f8fafc;
+                font-style: italic;
+            }
+            
+            .markdown-content code {
+                background: #f1f5f9;
+                padding: 0.2em 0.4em;
+                border-radius: 3px;
+                font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+                font-size: 0.9em;
+                color: #1e293b;
+            }
+            
+            .markdown-content pre {
+                background: #1f2937;
+                color: #f9fafb;
+                padding: 1em;
+                border-radius: 6px;
+                overflow-x: auto;
+                margin: 1em 0;
+            }
+            .markdown-content pre code {
+                background: transparent;
+                padding: 0;
+                color: inherit;
+                font-size: inherit;
+            }
+            
+            .markdown-content a {
+                color: #2563eb;
+                text-decoration: underline;
+            }
+            .markdown-content a:hover {
+                color: #1d4ed8;
+            }
+            
+            .markdown-content table {
+                border-collapse: collapse;
+                width: 100%;
+                margin: 1em 0;
+            }
+            .markdown-content th, .markdown-content td {
+                border: 1px solid #e5e7eb;
+                padding: 0.5em;
+                text-align: left;
+            }
+            .markdown-content th {
+                background: #f8fafc;
+                font-weight: 600;
+            }
+            
+            .markdown-content hr {
+                border: none;
+                border-top: 1px solid #e5e7eb;
+                margin: 2em 0;
+            }
+            
+            .markdown-content strong, .markdown-content b {
+                font-weight: 600;
+                color: #1f2937;
+            }
+            
+            .markdown-content em, .markdown-content i {
+                font-style: italic;
+                color: #4b5563;
+            }
         </style>
         @WebStyles()
         <script>
@@ -411,8 +497,8 @@ templ MessageContentComponent(message Message) {
 }
 
 templ StringContent(content string) {
-    <div class="string-content">
-        { content }
+    <div class="string-content markdown-content">
+        @templ.Raw(renderMarkdown(content))
     </div>
 }
 
@@ -420,6 +506,8 @@ templ ContentBlocks(blocks []ContentBlock) {
     for _, block := range blocks {
         if textBlock, ok := block.(*TextBlock); ok {
             @TextBlockComponent(*textBlock)
+        } else if thinkingBlock, ok := block.(*ThinkingBlock); ok {
+            @ThinkingBlockComponent(*thinkingBlock)
         } else if toolUse, ok := block.(*ToolUseBlock); ok {
             @ToolUseComponent(*toolUse)
         } else if toolResult, ok := block.(*ToolResultBlock); ok {
@@ -431,8 +519,45 @@ templ ContentBlocks(blocks []ContentBlock) {
 templ TextBlockComponent(block TextBlock) {
     <div class="content-block text-block">
         <div class="block-type">Text</div>
-        <div>{ block.Text }</div>
+        <div class="markdown-content">@templ.Raw(renderMarkdown(block.Text))</div>
     </div>
+}
+
+templ ThinkingBlockComponent(block ThinkingBlock) {
+    <details class="content-block thinking-block">
+        <summary class="block-type thinking-summary">
+            🤔 Thinking
+            <span class="thinking-indicator">Click to view reasoning</span>
+        </summary>
+        <div class="thinking-content markdown-content">
+            @templ.Raw(renderMarkdown(block.Content))
+        </div>
+    </details>
+    <style>
+        .thinking-block { border-left-color: #8b5cf6; background: #faf5ff; }
+        .thinking-summary { 
+            cursor: pointer; 
+            padding: 8px 12px; 
+            background: #f3e8ff; 
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .thinking-summary:hover { background: #e9d5ff; }
+        .thinking-indicator { 
+            font-size: 12px; 
+            color: #6b7280; 
+            font-weight: normal;
+            font-style: italic;
+        }
+        .thinking-content { 
+            padding: 12px; 
+            background: #fefefe;
+            margin-top: 8px;
+            border-top: 1px solid #e9d5ff;
+        }
+    </style>
 }
 
 templ ToolUseComponent(block ToolUseBlock) {
@@ -487,6 +612,36 @@ templ ToolInputComponent(toolName string, input ToolInput) {
         case "LS":
             if lsInput, ok := input.(LSInput); ok {
                 @LSInputComponent(lsInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "WebFetch":
+            if webFetchInput, ok := input.(WebFetchInput); ok {
+                @WebFetchInputComponent(webFetchInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "WebSearch":
+            if webSearchInput, ok := input.(WebSearchInput); ok {
+                @WebSearchInputComponent(webSearchInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "Task":
+            if taskInput, ok := input.(TaskInput); ok {
+                @TaskInputComponent(taskInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "Write":
+            if writeInput, ok := input.(WriteInput); ok {
+                @WriteInputComponent(writeInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "MultiEdit":
+            if multiEditInput, ok := input.(MultiEditInput); ok {
+                @MultiEditInputComponent(multiEditInput)
             } else {
                 <pre>{ fmt.Sprintf("%+v", input) }</pre>
             }
@@ -679,17 +834,7 @@ templ ToolResultComponent(block ToolResultBlock) {
         </div>
         <div><strong>Tool Use ID:</strong> { block.ToolUseId }</div>
         
-        if countLines(block.Content) <= 5 {
-            <pre>{ block.Content }</pre>
-        } else {
-            <details class="collapsible-result">
-                <summary class="result-summary">
-                    <span class="line-count">{ strconv.Itoa(countLines(block.Content)) } lines</span>
-                    <span class="preview-text">{ getFirstLines(block.Content, 2) }...</span>
-                </summary>
-                <pre class="full-content">{ block.Content }</pre>
-            </details>
-        }
+        @ToolResultContent(block.Content)
     </div>
     <style>
         .collapsible-result { margin: 8px 0; }
@@ -738,4 +883,174 @@ templ ToolResultComponent(block ToolResultBlock) {
             border-bottom-right-radius: 4px;
         }
     </style>
+}
+
+templ WebFetchInputComponent(input WebFetchInput) {
+    <div class="webfetch-input">
+        <div class="input-field">
+            <strong>URL:</strong>
+            <a href={ templ.URL(input.URL) } target="_blank" rel="noopener">{ input.URL }</a>
+        </div>
+        <div class="input-field">
+            <strong>Prompt:</strong>
+            <div class="prompt-text">{ input.Prompt }</div>
+        </div>
+    </div>
+    <style>
+        .webfetch-input { background: #e0f7fa; padding: 12px; border-radius: 6px; border: 1px solid #00acc1; }
+        .webfetch-input a { color: #00838f; text-decoration: underline; }
+        .prompt-text { background: #ffffff; padding: 8px; border-radius: 4px; margin-top: 4px; font-style: italic; }
+    </style>
+}
+
+templ WebSearchInputComponent(input WebSearchInput) {
+    <div class="websearch-input">
+        <div class="input-field">
+            <strong>Query:</strong>
+            <code class="query">{ input.Query }</code>
+        </div>
+        if len(input.AllowedDomains) > 0 {
+            <div class="input-field">
+                <strong>Allowed Domains:</strong>
+                <div class="domain-list">
+                    for _, domain := range input.AllowedDomains {
+                        <span class="domain allowed">{ domain }</span>
+                    }
+                </div>
+            </div>
+        }
+        if len(input.BlockedDomains) > 0 {
+            <div class="input-field">
+                <strong>Blocked Domains:</strong>
+                <div class="domain-list">
+                    for _, domain := range input.BlockedDomains {
+                        <span class="domain blocked">{ domain }</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    <style>
+        .websearch-input { background: #fff3e0; padding: 12px; border-radius: 6px; border: 1px solid #ff9800; }
+        .query { background: #ff9800; color: white; padding: 2px 6px; border-radius: 3px; }
+        .domain-list { margin-top: 4px; }
+        .domain { padding: 2px 6px; border-radius: 3px; font-size: 12px; margin-right: 4px; }
+        .domain.allowed { background: #e8f5e8; color: #2e7d32; }
+        .domain.blocked { background: #ffebee; color: #c62828; }
+    </style>
+}
+
+templ TaskInputComponent(input TaskInput) {
+    <div class="task-input">
+        <div class="input-field">
+            <strong>Description:</strong>
+            <span class="description">{ input.Description }</span>
+        </div>
+        <div class="input-field">
+            <strong>Subagent Type:</strong>
+            <span class="subagent-type">{ input.SubagentType }</span>
+        </div>
+        <div class="input-field">
+            <strong>Prompt:</strong>
+            <div class="prompt-text">{ input.Prompt }</div>
+        </div>
+    </div>
+    <style>
+        .task-input { background: #f3e5f5; padding: 12px; border-radius: 6px; border: 1px solid #9c27b0; }
+        .subagent-type { background: #9c27b0; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+        .prompt-text { background: #ffffff; padding: 8px; border-radius: 4px; margin-top: 4px; font-family: monospace; font-size: 12px; }
+    </style>
+}
+
+templ WriteInputComponent(input WriteInput) {
+    <div class="write-input">
+        <div class="input-field">
+            <strong>File Path:</strong>
+            <code>{ input.FilePath }</code>
+        </div>
+        <div class="input-field">
+            <strong>Content Preview:</strong>
+            <div class="content-preview">
+                if len(input.Content) > 200 {
+                    { input.Content[:200] }...
+                } else {
+                    { input.Content }
+                }
+            </div>
+        </div>
+    </div>
+    <style>
+        .write-input { background: #e8f5e8; padding: 12px; border-radius: 6px; border: 1px solid #4caf50; }
+        .content-preview { background: #ffffff; padding: 8px; border-radius: 4px; margin-top: 4px; font-family: monospace; font-size: 12px; max-height: 100px; overflow-y: auto; }
+    </style>
+}
+
+templ MultiEditInputComponent(input MultiEditInput) {
+    <div class="multiedit-input">
+        <div class="input-field">
+            <strong>File Path:</strong>
+            <code>{ input.FilePath }</code>
+        </div>
+        <div class="input-field">
+            <strong>Edits ({ strconv.Itoa(len(input.Edits)) } operations):</strong>
+            <div class="edits-list">
+                for i, edit := range input.Edits {
+                    <div class="edit-operation">
+                        <div class="edit-header">
+                            <span class="edit-number">Edit #{strconv.Itoa(i + 1)}</span>
+                            if edit.ReplaceAll != nil && *edit.ReplaceAll {
+                                <span class="replace-all-flag">Replace All</span>
+                            }
+                        </div>
+                        <div class="edit-changes">
+                            <div class="change-section">
+                                <strong>Old:</strong>
+                                <pre class="old-text">{ edit.OldString }</pre>
+                            </div>
+                            <div class="change-section">
+                                <strong>New:</strong>
+                                <pre class="new-text">{ edit.NewString }</pre>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <style>
+        .multiedit-input { background: #fff8e1; padding: 12px; border-radius: 6px; border: 1px solid #ffc107; }
+        .edits-list { margin-top: 8px; }
+        .edit-operation { margin: 8px 0; padding: 8px; background: #ffffff; border-radius: 4px; border-left: 3px solid #ffc107; }
+        .edit-header { display: flex; gap: 8px; margin-bottom: 6px; }
+        .edit-number { background: #ffc107; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: bold; }
+        .replace-all-flag { background: #ff5722; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+        .edit-changes { margin-top: 8px; }
+        .change-section { margin: 6px 0; }
+        .old-text { background: #ffebee; color: #c62828; padding: 6px; border-radius: 3px; margin: 3px 0; font-size: 11px; }
+        .new-text { background: #e8f5e8; color: #2e7d32; padding: 6px; border-radius: 3px; margin: 3px 0; font-size: 11px; }
+    </style>
+}
+
+templ ToolResultContent(content interface{}) {
+    if str, ok := content.(string); ok {
+        if countLines(str) <= 5 {
+            <pre>{ str }</pre>
+        } else {
+            <details class="collapsible-result">
+                <summary class="result-summary">
+                    <span class="line-count">{ strconv.Itoa(countLines(str)) } lines</span>
+                    <span class="preview-text">{ getFirstLines(str, 2) }...</span>
+                </summary>
+                <pre class="full-content">{ str }</pre>
+            </details>
+        }
+    } else {
+        <details class="collapsible-result">
+            <summary class="result-summary">
+                <span class="line-count">Complex Result</span>
+                <span class="preview-text">Array/Object content - click to view</span>
+            </summary>
+            <pre class="full-content">{ formatToolUseResult(content) }</pre>
+        </details>
+    }
 }

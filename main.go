@@ -117,6 +117,12 @@ func parseJSONL(filename string) ([]LogEntry, error) {
 }
 
 func parseMessageContent(message *Message) error {
+	// Handle null content
+	if message.Content == nil {
+		message.Content = ""
+		return nil
+	}
+	
 	// First, unmarshal the raw content to determine its type
 	var rawContent interface{}
 	contentBytes, err := json.Marshal(message.Content)
@@ -126,6 +132,12 @@ func parseMessageContent(message *Message) error {
 	
 	if err := json.Unmarshal(contentBytes, &rawContent); err != nil {
 		return err
+	}
+	
+	// Check if it's null again after unmarshaling
+	if rawContent == nil {
+		message.Content = ""
+		return nil
 	}
 	
 	// Check if it's a string (simple user messages)
@@ -160,6 +172,13 @@ func parseMessageContent(message *Message) error {
 					return err
 				}
 				block = &textBlock
+				
+			case "thinking":
+				var thinkingBlock ThinkingBlock
+				if err := json.Unmarshal(blockBytes, &thinkingBlock); err != nil {
+					return err
+				}
+				block = &thinkingBlock
 				
 			case "tool_use":
 				var toolUseBlock ToolUseBlock
@@ -245,6 +264,41 @@ func parseToolInput(toolUse *ToolUseBlock) error {
 		
 	case "LS":
 		var input LSInput
+		if err := json.Unmarshal(inputBytes, &input); err != nil {
+			return err
+		}
+		toolUse.Input = input
+		
+	case "WebFetch":
+		var input WebFetchInput
+		if err := json.Unmarshal(inputBytes, &input); err != nil {
+			return err
+		}
+		toolUse.Input = input
+		
+	case "WebSearch":
+		var input WebSearchInput
+		if err := json.Unmarshal(inputBytes, &input); err != nil {
+			return err
+		}
+		toolUse.Input = input
+		
+	case "Task":
+		var input TaskInput
+		if err := json.Unmarshal(inputBytes, &input); err != nil {
+			return err
+		}
+		toolUse.Input = input
+		
+	case "Write":
+		var input WriteInput
+		if err := json.Unmarshal(inputBytes, &input); err != nil {
+			return err
+		}
+		toolUse.Input = input
+		
+	case "MultiEdit":
+		var input MultiEditInput
 		if err := json.Unmarshal(inputBytes, &input); err != nil {
 			return err
 		}

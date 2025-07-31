@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	
+	"github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/html"
+	"github.com/gomarkdown/markdown/parser"
 )
 
 func countUserMessages(entries []LogEntry) int {
@@ -180,4 +184,18 @@ func truncateText(text string, maxLen int) string {
 		return text
 	}
 	return text[:maxLen]
+}
+
+func renderMarkdown(content string) string {
+	// Create markdown parser with extensions
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
+	p := parser.NewWithExtensions(extensions)
+	
+	// Create HTML renderer with options
+	htmlFlags := html.CommonFlags | html.HrefTargetBlank
+	opts := html.RendererOptions{Flags: htmlFlags}
+	renderer := html.NewRenderer(opts)
+	
+	// Parse and render
+	return string(markdown.ToHTML([]byte(content), p, renderer))
 }
