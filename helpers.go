@@ -83,3 +83,36 @@ func formatToolUseResult(result interface{}) string {
 	
 	return string(jsonBytes)
 }
+
+func extractSessionUUID(filename string) string {
+	// Extract UUID from filename like "91cc2e2a-2d04-46ba-a5cf-5fcadf00f1da.jsonl"
+	if len(filename) < 36 {
+		return ""
+	}
+	
+	// Remove path and extension
+	basename := filename
+	if lastSlash := strings.LastIndex(filename, "/"); lastSlash != -1 {
+		basename = filename[lastSlash+1:]
+	}
+	if lastDot := strings.LastIndex(basename, "."); lastDot != -1 {
+		basename = basename[:lastDot]
+	}
+	
+	// Check if it looks like a UUID (36 characters with hyphens in right places)
+	if len(basename) == 36 && 
+		basename[8] == '-' && basename[13] == '-' && 
+		basename[18] == '-' && basename[23] == '-' {
+		return basename
+	}
+	
+	return ""
+}
+
+func getSessionCwd(entries []LogEntry) string {
+	// Get the cwd from the first entry (all should be the same for a session)
+	if len(entries) > 0 {
+		return entries[0].Cwd
+	}
+	return ""
+}

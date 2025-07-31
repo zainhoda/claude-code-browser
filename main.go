@@ -41,22 +41,22 @@ func main() {
 	}
 	
 	// Generate HTML output
-	if err := generateHTML(entries, outputFile); err != nil {
+	if err := generateHTML(entries, outputFile, filename); err != nil {
 		log.Fatalf("Error generating HTML: %v", err)
 	}
 	
 	fmt.Printf("\nHTML output written to: %s\n", outputFile)
 }
 
-func generateHTML(entries []LogEntry, filename string) error {
-	file, err := os.Create(filename)
+func generateHTML(entries []LogEntry, outputFile, inputFile string) error {
+	file, err := os.Create(outputFile)
 	if err != nil {
 		return fmt.Errorf("error creating output file: %v", err)
 	}
 	defer file.Close()
 
 	// Render the templ component to the file
-	component := ConversationLog(entries)
+	component := ConversationLog(entries, inputFile)
 	return component.Render(context.Background(), file)
 }
 

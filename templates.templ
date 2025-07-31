@@ -74,7 +74,144 @@ templ Layout(title string) {
                 border-bottom-right-radius: 0;
                 border-bottom: none;
             }
+            
+            /* Resume Section Styles */
+            .resume-section {
+                background: #e7f3ff;
+                border: 2px solid #2563eb;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            .resume-section h2 {
+                margin-top: 0;
+                color: #1e40af;
+            }
+            .resume-commands {
+                margin: 15px 0;
+            }
+            .resume-command {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin: 8px 0;
+                padding: 12px;
+                background: #1f2937;
+                border-radius: 6px;
+            }
+            .copy-all-wrapper {
+                text-align: center;
+                margin: 15px 0;
+            }
+            .copy-all-button {
+                background: #059669;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                transition: background-color 0.2s;
+            }
+            .copy-all-button:hover {
+                background: #047857;
+            }
+            .copy-all-button:active {
+                background: #065f46;
+            }
+            .command-text {
+                flex: 1;
+                color: #f9fafb;
+                background: transparent;
+                font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            .copy-button {
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                transition: background-color 0.2s;
+            }
+            .copy-button:hover {
+                background: #2563eb;
+            }
+            .copy-button:active {
+                background: #1d4ed8;
+            }
+            .resume-note {
+                font-style: italic;
+                color: #4b5563;
+                margin-bottom: 0;
+                font-size: 14px;
+            }
         </style>
+        <script>
+            function copyToClipboard(text) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        showCopyFeedback();
+                    });
+                } else {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        showCopyFeedback();
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                    }
+                    document.body.removeChild(textArea);
+                }
+            }
+            
+            function copyResumeCommand() {
+                const commandElement = document.getElementById('resume-command');
+                const commandText = commandElement.textContent;
+                copyToClipboard(commandText);
+            }
+            
+            function copyCdCommand() {
+                const commandElement = document.getElementById('cd-command');
+                const commandText = commandElement.textContent;
+                copyToClipboard(commandText);
+            }
+            
+            function copyAllCommands() {
+                const cdElement = document.getElementById('cd-command');
+                const resumeElement = document.getElementById('resume-command');
+                if (cdElement && resumeElement) {
+                    const bothCommands = cdElement.textContent + '\n' + resumeElement.textContent;
+                    copyToClipboard(bothCommands);
+                } else {
+                    // Fallback to just resume command if cd not available
+                    copyResumeCommand();
+                }
+            }
+            
+            function showCopyFeedback() {
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = '✅ Copied!';
+                button.style.background = '#10b981';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '#3b82f6';
+                }, 2000);
+            }
+        </script>
     </head>
     <body>
         <div class="container">
@@ -84,13 +221,44 @@ templ Layout(title string) {
     </html>
 }
 
-templ ConversationLog(entries []LogEntry) {
+templ ConversationLog(entries []LogEntry, inputFile string) {
     @Layout("Claude Code Parser - Conversation Log") {
+        @ResumeSection(inputFile, entries)
         @Summary(entries)
         
         for _, entry := range entries {
             @LogEntryComponent(entry)
         }
+    }
+}
+
+templ ResumeSection(inputFile string, entries []LogEntry) {
+    if sessionUUID := extractSessionUUID(inputFile); sessionUUID != "" {
+        <div class="resume-section">
+            <h2>📋 Resume This Session</h2>
+            <p>To continue this Claude Code session, run:</p>
+            if cwd := getSessionCwd(entries); cwd != "" {
+                <div class="resume-commands">
+                    <div class="resume-command">
+                        <code class="command-text" id="cd-command">cd "{ cwd }"</code>
+                        <button class="copy-button" onclick="copyCdCommand()">📋</button>
+                    </div>
+                    <div class="resume-command">
+                        <code class="command-text" id="resume-command">claude --resume { sessionUUID }</code>
+                        <button class="copy-button" onclick="copyResumeCommand()">📋</button>
+                    </div>
+                    <div class="copy-all-wrapper">
+                        <button class="copy-all-button" onclick="copyAllCommands()">📋 Copy Both Commands</button>
+                    </div>
+                </div>
+            } else {
+                <div class="resume-command">
+                    <code class="command-text" id="resume-command">claude --resume { sessionUUID }</code>
+                    <button class="copy-button" onclick="copyResumeCommand()">📋 Copy</button>
+                </div>
+            }
+            <p class="resume-note">This will restore the conversation context and allow you to continue where you left off.</p>
+        </div>
     }
 }
 
