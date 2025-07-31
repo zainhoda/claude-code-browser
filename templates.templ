@@ -150,7 +150,37 @@ templ Layout(title string) {
                 margin-bottom: 0;
                 font-size: 14px;
             }
+            
+            /* Navigation Actions */
+            .navigation-actions {
+                text-align: center;
+                margin: 20px 0;
+                padding: 15px 0;
+                border-top: 1px solid #e5e7eb;
+            }
+            .jump-to-bottom-btn {
+                background: #6366f1;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                transition: all 0.2s;
+                box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+            }
+            .jump-to-bottom-btn:hover {
+                background: #4f46e5;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
+            }
+            .jump-to-bottom-btn:active {
+                transform: translateY(0);
+                background: #4338ca;
+            }
         </style>
+        @WebStyles()
         <script>
             function copyToClipboard(text) {
                 if (navigator.clipboard && window.isSecureContext) {
@@ -211,6 +241,13 @@ templ Layout(title string) {
                     button.style.background = '#3b82f6';
                 }, 2000);
             }
+            
+            function jumpToBottom() {
+                window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
         </script>
     </head>
     <body>
@@ -223,11 +260,26 @@ templ Layout(title string) {
 
 templ ConversationLog(entries []LogEntry, inputFile string) {
     @Layout("Claude Code Parser - Conversation Log") {
+        @SessionBreadcrumb(inputFile)
         @ResumeSection(inputFile, entries)
         @Summary(entries)
         
         for _, entry := range entries {
             @LogEntryComponent(entry)
+        }
+    }
+}
+
+templ SessionBreadcrumb(inputFile string) {
+    if sessionUUID := extractSessionUUID(inputFile); sessionUUID != "" {
+        if projectName := extractProjectName(inputFile); projectName != "" {
+            <nav class="breadcrumb">
+                <a href="/">🏠 Projects</a>
+                <span class="separator">›</span>
+                <a href={ templ.URL("/project/" + projectName) }>📁 { projectName }</a>
+                <span class="separator">›</span>
+                <span class="current">💬 { sessionUUID[:8] }...</span>
+            </nav>
         }
     }
 }
@@ -286,6 +338,12 @@ templ Summary(entries []LogEntry) {
         </div>
         
         @ToolUsageChart(getToolCounts(entries))
+        
+        <div class="navigation-actions">
+            <button class="jump-to-bottom-btn" onclick="jumpToBottom()">
+                ⬇️ Jump to Bottom
+            </button>
+        </div>
     </div>
 }
 

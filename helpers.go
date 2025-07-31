@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 func countUserMessages(entries []LogEntry) int {
@@ -109,10 +110,74 @@ func extractSessionUUID(filename string) string {
 	return ""
 }
 
+func extractProjectName(filename string) string {
+	// Extract project name from path like "/Users/user/.claude/projects/my-project/session.jsonl"
+	// Look for the pattern "/.claude/projects/{project-name}/"
+	
+	claudeIndex := strings.Index(filename, "/.claude/projects/")
+	if claudeIndex == -1 {
+		return ""
+	}
+	
+	// Start after "/.claude/projects/"
+	start := claudeIndex + len("/.claude/projects/")
+	remaining := filename[start:]
+	
+	// Find the next slash to get the project name
+	if slashIndex := strings.Index(remaining, "/"); slashIndex != -1 {
+		return remaining[:slashIndex]
+	}
+	
+	// If no slash found, the remaining part might be the project name
+	// (though this shouldn't happen in normal usage)
+	return remaining
+}
+
 func getSessionCwd(entries []LogEntry) string {
 	// Get the cwd from the first entry (all should be the same for a session)
 	if len(entries) > 0 {
 		return entries[0].Cwd
 	}
 	return ""
+}
+
+func formatTime(t time.Time) string {
+	now := time.Now()
+	diff := now.Sub(t)
+	
+	if diff < time.Hour {
+		minutes := int(diff.Minutes())
+		if minutes == 0 {
+			return "just now"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	} else if diff < 24*time.Hour {
+		hours := int(diff.Hours())
+		return fmt.Sprintf("%d hours ago", hours)
+	} else if diff < 7*24*time.Hour {
+		days := int(diff.Hours() / 24)
+		return fmt.Sprintf("%d days ago", days)
+	} else {
+		return t.Format("Jan 2, 2006")
+	}
+}
+
+func formatFileSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func truncateText(text string, maxLen int) string {
+	if len(text) <= maxLen {
+		return text
+	}
+	return text[:maxLen]
 }

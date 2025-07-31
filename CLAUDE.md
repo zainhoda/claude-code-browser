@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Claude Code Parser is a Go application that parses JSONL files containing Claude Code session logs and generates HTML visualizations. The application uses strongly-typed Go structs to model conversation data without relying on `interface{}` types, providing type safety throughout the parsing pipeline.
+Claude Code Parser is a Go application that parses JSONL files containing Claude Code session logs and provides both CLI and web-based visualization. The application uses strongly-typed Go structs to model conversation data without relying on `interface{}` types, providing type safety throughout the parsing pipeline.
+
+**Dual Mode Operation:**
+- **CLI Mode**: Process individual JSONL files and generate standalone HTML reports
+- **Web Server Mode**: Browse all Claude Code projects and sessions through a web interface
 
 ## Core Architecture
 
@@ -52,10 +56,16 @@ make generate       # Generate Go code from .templ files
 make build          # Build standalone binary
 ```
 
-### Running
+### CLI Mode (Single File Processing)
 ```bash
 make run            # Quick run with default JSONL file
 make run-file FILE=data.jsonl OUTPUT=report.html  # Custom input/output
+```
+
+### Web Server Mode (Browse All Sessions)
+```bash
+make server         # Start web server on port 8080
+make server-port PORT=3000  # Start on custom port
 ```
 
 ### Development Workflow
@@ -80,6 +90,18 @@ The application models 7 different tool types with dedicated input structs:
 
 Tool inputs are parsed dynamically based on the `tool_use.name` field, providing compile-time type safety while supporting runtime polymorphism.
 
+## Web Server Architecture
+
+**URL Structure:**
+- `/` - Project index (lists all projects from `~/.claude/projects`)
+- `/project/{name}` - Project detail (shows all JSONL sessions)
+- `/session/{project}/{uuid}` - Session viewer (full conversation display)
+
+**Key Components:**
+- `server.go` - HTTP handlers and routing logic
+- `web_templates.templ` - Web-specific templates for project/session browsing
+- `ProjectInfo/SessionInfo` structs - Metadata for directory listings
+
 ## Data Characteristics
 
 Typical JSONL files contain:
@@ -87,3 +109,4 @@ Typical JSONL files contain:
 - ~35% of messages involve tool usage
 - Large line sizes requiring 10MB scanner buffer
 - Mixed `toolUseResult` types (string or object)
+- Files stored in `~/.claude/projects/{project-name}/{session-uuid}.jsonl`

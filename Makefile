@@ -11,6 +11,8 @@ help:
 	@echo "  run       - Run with default JSONL file"
 	@echo "  run-open  - Run with default file and open HTML in browser"
 	@echo "  run-file  - Run with custom JSONL file (make run-file FILE=your-file.jsonl)"
+	@echo "  server    - Start web server on port 8080"
+	@echo "  server-port - Start web server on custom port (make server-port PORT=3000)"
 	@echo "  fmt       - Format Go code"
 	@echo "  vet       - Run go vet"
 	@echo "  test      - Run tests"
@@ -61,6 +63,17 @@ run-file: generate
 	@echo "Running with file: $(FILE) -> $(OUTPUT)"
 	go run . $(FILE) $(OUTPUT)
 	@echo "✅ HTML output written to $(OUTPUT)"
+
+# Start web server
+server: generate
+	@echo "Starting web server on port 8080..."
+	go run . --server
+
+# Start web server with custom port
+PORT ?= 8080
+server-port: generate
+	@echo "Starting web server on port $(PORT)..."
+	go run . --server --port $(PORT)
 
 # Format Go code
 fmt:

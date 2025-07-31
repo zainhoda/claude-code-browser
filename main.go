@@ -12,7 +12,17 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("Usage: go run main.go <jsonl-file> [output.html]")
+		log.Fatal("Usage: go run main.go [--server] [--port 8080] <jsonl-file> [output.html]")
+	}
+
+	// Check for server mode
+	if os.Args[1] == "--server" {
+		port := "8080"
+		if len(os.Args) > 2 && os.Args[2] == "--port" && len(os.Args) > 3 {
+			port = os.Args[3]
+		}
+		startServer(port)
+		return
 	}
 
 	filename := os.Args[1]
