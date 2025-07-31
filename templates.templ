@@ -1,0 +1,515 @@
+package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+templ Layout(title string) {
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>{ title }</title>
+        <style>
+            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            .entry { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .header { display: flex; justify-content: between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+            .type { font-weight: bold; padding: 4px 8px; border-radius: 4px; color: white; }
+            .type.user { background: #2563eb; }
+            .type.assistant { background: #16a34a; }
+            .meta { font-size: 12px; color: #666; }
+            .content { margin: 15px 0; }
+            .content-block { margin: 10px 0; padding: 10px; border-left: 3px solid #ddd; background: #f9f9f9; }
+            .text-block { border-left-color: #3b82f6; }
+            .tool-use-block { border-left-color: #f59e0b; }
+            .tool-result-block { border-left-color: #10b981; }
+            .tool-error-block { border-left-color: #ef4444; }
+            .block-type { font-weight: bold; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; }
+            .tool-input { background: #fff; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+            .string-content { padding: 10px; background: #f0f9ff; border-radius: 4px; }
+            pre { background: #1f2937; color: #f9fafb; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+            .usage { display: flex; gap: 15px; font-size: 12px; color: #666; }
+            .summary { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+            .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; }
+            .stat-number { font-size: 24px; font-weight: bold; color: #2563eb; }
+            
+            /* Tool Use Result Metadata Styles */
+            .tool-use-result-details { margin: 8px 0; }
+            .tool-use-result-summary { 
+                cursor: pointer; 
+                padding: 8px 12px; 
+                background: #f8f9fa; 
+                border: 1px solid #dee2e6;
+                border-radius: 4px; 
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .tool-use-result-summary:hover { background: #e9ecef; }
+            .metadata-indicator { 
+                font-size: 12px; 
+                color: #6c757d; 
+                font-weight: normal;
+            }
+            .metadata-content { 
+                margin: 0;
+                margin-top: 8px; 
+                padding: 12px;
+                background: #f8f9fa;
+                color: #212529;
+                border: 1px solid #dee2e6;
+                border-top: none;
+                border-bottom-left-radius: 4px;
+                border-bottom-right-radius: 4px;
+                font-size: 12px;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+            details[open] .tool-use-result-summary { 
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                border-bottom: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            { children... }
+        </div>
+    </body>
+    </html>
+}
+
+templ ConversationLog(entries []LogEntry) {
+    @Layout("Claude Code Parser - Conversation Log") {
+        @Summary(entries)
+        
+        for _, entry := range entries {
+            @LogEntryComponent(entry)
+        }
+    }
+}
+
+templ Summary(entries []LogEntry) {
+    <div class="summary">
+        <h1>Conversation Log Summary</h1>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">{ strconv.Itoa(len(entries)) }</div>
+                <div>Total Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{ strconv.Itoa(countUserMessages(entries)) }</div>
+                <div>User Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{ strconv.Itoa(countAssistantMessages(entries)) }</div>
+                <div>Assistant Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{ strconv.Itoa(countToolUses(entries)) }</div>
+                <div>Tool Uses</div>
+            </div>
+        </div>
+        
+        @ToolUsageChart(getToolCounts(entries))
+    </div>
+}
+
+templ ToolUsageChart(toolCounts map[string]int) {
+    <div>
+        <h3>Tool Usage</h3>
+        for tool, count := range toolCounts {
+            <div style="margin: 5px 0;">
+                <span style="display: inline-block; width: 100px;">{ tool }:</span>
+                <span style="font-weight: bold;">{ strconv.Itoa(count) }</span>
+            </div>
+        }
+    </div>
+}
+
+templ LogEntryComponent(entry LogEntry) {
+    <div class="entry">
+        <div class="header">
+            <div>
+                <span class={ "type", entry.Type }>{ entry.Type }</span>
+                <span class="meta">
+                    { entry.Timestamp.Format("2006-01-02 15:04:05") } | 
+                    Session: { entry.SessionId[:8] }... | 
+                    UUID: { entry.Uuid[:8] }...
+                    if entry.RequestId != nil {
+                        | Request: { (*entry.RequestId)[:8] }...
+                    }
+                </span>
+            </div>
+        </div>
+        
+        @MessageContentComponent(entry.Message)
+        
+        if entry.ToolUseResult != nil {
+            <div style="margin-top: 15px;">
+                <details class="tool-use-result-details">
+                    <summary class="tool-use-result-summary">
+                        <strong>Tool Use Result Metadata</strong>
+                        <span class="metadata-indicator">Click to view</span>
+                    </summary>
+                    <pre class="metadata-content">{ formatToolUseResult(entry.ToolUseResult) }</pre>
+                </details>
+            </div>
+        }
+    </div>
+}
+
+templ MessageContentComponent(message Message) {
+    <div class="content">
+        if content, ok := message.Content.(string); ok {
+            @StringContent(content)
+        } else if blocks, ok := message.Content.([]ContentBlock); ok {
+            @ContentBlocks(blocks)
+        }
+        
+        if message.Usage != nil {
+            <div class="usage">
+                <span>Input: { strconv.Itoa(message.Usage.InputTokens) } tokens</span>
+                <span>Output: { strconv.Itoa(message.Usage.OutputTokens) } tokens</span>
+                <span>Cache Creation: { strconv.Itoa(message.Usage.CacheCreationInputTokens) }</span>
+                <span>Cache Read: { strconv.Itoa(message.Usage.CacheReadInputTokens) }</span>
+            </div>
+        }
+    </div>
+}
+
+templ StringContent(content string) {
+    <div class="string-content">
+        { content }
+    </div>
+}
+
+templ ContentBlocks(blocks []ContentBlock) {
+    for _, block := range blocks {
+        if textBlock, ok := block.(*TextBlock); ok {
+            @TextBlockComponent(*textBlock)
+        } else if toolUse, ok := block.(*ToolUseBlock); ok {
+            @ToolUseComponent(*toolUse)
+        } else if toolResult, ok := block.(*ToolResultBlock); ok {
+            @ToolResultComponent(*toolResult)
+        }
+    }
+}
+
+templ TextBlockComponent(block TextBlock) {
+    <div class="content-block text-block">
+        <div class="block-type">Text</div>
+        <div>{ block.Text }</div>
+    </div>
+}
+
+templ ToolUseComponent(block ToolUseBlock) {
+    <div class="content-block tool-use-block">
+        <div class="block-type">Tool Use: { block.Name }</div>
+        <div><strong>ID:</strong> { block.Id }</div>
+        <div class="tool-input">
+            <strong>Input:</strong>
+            @ToolInputComponent(block.Name, block.Input)
+        </div>
+    </div>
+}
+
+templ ToolInputComponent(toolName string, input ToolInput) {
+    switch toolName {
+        case "TodoWrite":
+            if todoInput, ok := input.(TodoWriteInput); ok {
+                @TodoWriteInputComponent(todoInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "Bash":
+            if bashInput, ok := input.(BashInput); ok {
+                @BashInputComponent(bashInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "Edit":
+            if editInput, ok := input.(EditInput); ok {
+                @EditInputComponent(editInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "Read":
+            if readInput, ok := input.(ReadInput); ok {
+                @ReadInputComponent(readInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "Glob":
+            if globInput, ok := input.(GlobInput); ok {
+                @GlobInputComponent(globInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "Grep":
+            if grepInput, ok := input.(GrepInput); ok {
+                @GrepInputComponent(grepInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        case "LS":
+            if lsInput, ok := input.(LSInput); ok {
+                @LSInputComponent(lsInput)
+            } else {
+                <pre>{ fmt.Sprintf("%+v", input) }</pre>
+            }
+        default:
+            <pre>{ fmt.Sprintf("%+v", input) }</pre>
+    }
+}
+
+templ TodoWriteInputComponent(input TodoWriteInput) {
+    <div class="todo-input">
+        <h4>Todos ({ strconv.Itoa(len(input.Todos)) } items):</h4>
+        <div class="todo-list">
+            for _, todo := range input.Todos {
+                <div class={ "todo-item", "priority-" + todo.Priority, "status-" + todo.Status }>
+                    <div class="todo-header">
+                        <span class="todo-id">#{todo.Id}</span>
+                        <span class={ "todo-status", todo.Status }>{ todo.Status }</span>
+                        <span class={ "todo-priority", todo.Priority }>{ todo.Priority }</span>
+                    </div>
+                    <div class="todo-content">{ todo.Content }</div>
+                </div>
+            }
+        </div>
+    </div>
+    <style>
+        .todo-input { background: #f8fafc; padding: 12px; border-radius: 6px; }
+        .todo-list { margin-top: 8px; }
+        .todo-item { margin: 8px 0; padding: 10px; background: white; border-radius: 4px; border-left: 4px solid #ddd; }
+        .todo-item.status-pending { border-left-color: #f59e0b; }
+        .todo-item.status-in_progress { border-left-color: #3b82f6; }
+        .todo-item.status-completed { border-left-color: #10b981; }
+        .todo-header { display: flex; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+        .todo-id { font-weight: bold; color: #6b7280; }
+        .todo-status { padding: 2px 6px; border-radius: 3px; color: white; }
+        .todo-status.pending { background: #f59e0b; }
+        .todo-status.in_progress { background: #3b82f6; }
+        .todo-status.completed { background: #10b981; }
+        .todo-priority { padding: 2px 6px; border-radius: 3px; }
+        .todo-priority.high { background: #fef2f2; color: #dc2626; }
+        .todo-priority.medium { background: #fefbf2; color: #d97706; }
+        .todo-priority.low { background: #f0f9ff; color: #2563eb; }
+        .todo-content { font-size: 14px; }
+    </style>
+}
+
+templ BashInputComponent(input BashInput) {
+    <div class="bash-input">
+        <div class="input-field">
+            <strong>Command:</strong>
+            <code class="command">{ input.Command }</code>
+        </div>
+        <div class="input-field">
+            <strong>Description:</strong>
+            <span class="description">{ input.Description }</span>
+        </div>
+    </div>
+    <style>
+        .bash-input { background: #1f2937; color: #f9fafb; padding: 12px; border-radius: 6px; }
+        .input-field { margin: 6px 0; }
+        .command { background: #374151; padding: 4px 8px; border-radius: 4px; font-family: monospace; }
+        .description { font-style: italic; color: #d1d5db; }
+    </style>
+}
+
+templ EditInputComponent(input EditInput) {
+    <div class="edit-input">
+        <div class="input-field">
+            <strong>File:</strong>
+            <code>{ input.FilePath }</code>
+        </div>
+        if input.ReplaceAll != nil && *input.ReplaceAll {
+            <div class="input-field">
+                <strong>Mode:</strong>
+                <span class="replace-mode">Replace All</span>
+            </div>
+        }
+        <div class="edit-changes">
+            <div class="change-section">
+                <strong>Old:</strong>
+                <pre class="old-text">{ input.OldString }</pre>
+            </div>
+            <div class="change-section">
+                <strong>New:</strong>
+                <pre class="new-text">{ input.NewString }</pre>
+            </div>
+        </div>
+    </div>
+    <style>
+        .edit-input { background: #fef3c7; padding: 12px; border-radius: 6px; }
+        .input-field { margin: 6px 0; }
+        .replace-mode { background: #f59e0b; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+        .edit-changes { margin-top: 10px; }
+        .change-section { margin: 8px 0; }
+        .old-text { background: #fef2f2; color: #dc2626; padding: 8px; border-radius: 4px; margin: 4px 0; font-size: 12px; }
+        .new-text { background: #f0fdf4; color: #16a34a; padding: 8px; border-radius: 4px; margin: 4px 0; font-size: 12px; }
+    </style>
+}
+
+templ ReadInputComponent(input ReadInput) {
+    <div class="read-input">
+        <div class="input-field">
+            <strong>File:</strong>
+            <code>{ input.FilePath }</code>
+        </div>
+        if input.Limit != nil || input.Offset != nil {
+            <div class="read-options">
+                if input.Offset != nil {
+                    <span class="option">Offset: { strconv.Itoa(*input.Offset) }</span>
+                }
+                if input.Limit != nil {
+                    <span class="option">Limit: { strconv.Itoa(*input.Limit) } lines</span>
+                }
+            </div>
+        }
+    </div>
+    <style>
+        .read-input { background: #eff6ff; padding: 12px; border-radius: 6px; }
+        .read-options { margin-top: 8px; }
+        .option { background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; margin-right: 6px; }
+    </style>
+}
+
+templ GlobInputComponent(input GlobInput) {
+    <div class="glob-input">
+        <div class="input-field">
+            <strong>Pattern:</strong>
+            <code class="pattern">{ input.Pattern }</code>
+        </div>
+        if input.Path != nil {
+            <div class="input-field">
+                <strong>Path:</strong>
+                <code>{ *input.Path }</code>
+            </div>
+        }
+    </div>
+    <style>
+        .glob-input { background: #f3e8ff; padding: 12px; border-radius: 6px; }
+        .pattern { background: #8b5cf6; color: white; padding: 2px 6px; border-radius: 3px; }
+    </style>
+}
+
+templ GrepInputComponent(input GrepInput) {
+    <div class="grep-input">
+        <div class="input-field">
+            <strong>Pattern:</strong>
+            <code class="pattern">{ input.Pattern }</code>
+        </div>
+        <div class="grep-options">
+            if input.Glob != nil {
+                <span class="option">Glob: { *input.Glob }</span>
+            }
+            if input.Path != nil {
+                <span class="option">Path: { *input.Path }</span>
+            }
+            if input.OutputMode != nil {
+                <span class="option">Output: { *input.OutputMode }</span>
+            }
+            if input.LineNumbers != nil && *input.LineNumbers {
+                <span class="option">Line Numbers</span>
+            }
+        </div>
+    </div>
+    <style>
+        .grep-input { background: #ecfdf5; padding: 12px; border-radius: 6px; }
+        .pattern { background: #10b981; color: white; padding: 2px 6px; border-radius: 3px; }
+        .grep-options { margin-top: 8px; }
+        .option { background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 3px; font-size: 12px; margin-right: 6px; }
+    </style>
+}
+
+templ LSInputComponent(input LSInput) {
+    <div class="ls-input">
+        <div class="input-field">
+            <strong>Path:</strong>
+            <code>{ input.Path }</code>
+        </div>
+    </div>
+    <style>
+        .ls-input { background: #fafaf9; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb; }
+    </style>
+}
+
+templ ToolResultComponent(block ToolResultBlock) {
+    <div class={ "content-block", templ.KV("tool-error-block", block.IsError != nil && *block.IsError), templ.KV("tool-result-block", block.IsError == nil || !*block.IsError) }>
+        <div class="block-type">
+            Tool Result
+            if block.IsError != nil && *block.IsError {
+                (ERROR)
+            }
+        </div>
+        <div><strong>Tool Use ID:</strong> { block.ToolUseId }</div>
+        
+        if countLines(block.Content) <= 5 {
+            <pre>{ block.Content }</pre>
+        } else {
+            <details class="collapsible-result">
+                <summary class="result-summary">
+                    <span class="line-count">{ strconv.Itoa(countLines(block.Content)) } lines</span>
+                    <span class="preview-text">{ getFirstLines(block.Content, 2) }...</span>
+                </summary>
+                <pre class="full-content">{ block.Content }</pre>
+            </details>
+        }
+    </div>
+    <style>
+        .collapsible-result { margin: 8px 0; }
+        .result-summary { 
+            cursor: pointer; 
+            padding: 8px; 
+            background: #f3f4f6; 
+            border-radius: 4px; 
+            border: 1px solid #d1d5db;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .result-summary:hover { background: #e5e7eb; }
+        .line-count { 
+            background: #6b7280; 
+            color: white; 
+            padding: 2px 6px; 
+            border-radius: 3px; 
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .preview-text { 
+            font-family: monospace; 
+            font-size: 12px; 
+            color: #4b5563;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .full-content { 
+            margin-top: 8px; 
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        details[open] .result-summary { 
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-bottom: none;
+        }
+        details[open] .full-content {
+            border: 1px solid #d1d5db;
+            border-top: none;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+    </style>
+}
