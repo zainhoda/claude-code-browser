@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Claude Code Parser is a Go application that parses JSONL files containing Claude Code session logs and provides both CLI and web-based visualization. The application uses strongly-typed Go structs to model conversation data without relying on `interface{}` types, providing type safety throughout the parsing pipeline.
+Claude Code Browser is a Go application that parses JSONL files containing Claude Code session logs and provides both CLI and web-based visualization. The application uses strongly-typed Go structs to model conversation data without relying on `interface{}` types, providing type safety throughout the parsing pipeline.
 
 **Dual Mode Operation:**
 - **CLI Mode**: Process individual JSONL files and generate standalone HTML reports
